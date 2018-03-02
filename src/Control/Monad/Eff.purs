@@ -1,17 +1,31 @@
 module Control.Monad.Eff
-  ( Eff
+  ( kind Effect
+  , Eff
   , Pure
   , runPure
   , untilE, whileE, forE, foreachE
   ) where
 
-import Control.Applicative (class Applicative, liftA1)
-import Control.Apply (class Apply)
+import Control.Applicative (class Applicative, liftA1, pure)
+import Control.Apply (class Apply, lift2)
 import Control.Bind (class Bind)
 import Control.Monad (class Monad, ap)
 
 import Data.Functor (class Functor)
+import Data.Monoid (class Monoid, mempty)
+import Data.Semigroup (class Semigroup, append)
 import Data.Unit (Unit)
+
+-- | The kind of all effect types.
+-- |
+-- | Declare new effect types using `foreign data` declarations, as follows:
+-- |
+-- | ```purescript
+-- | import Control.Monad.Eff (kind Effect)
+-- |
+-- | foreign import data MyEffect :: Effect
+-- | ```
+foreign import kind Effect
 
 -- | The `Eff` type constructor is used to represent _native_ effects.
 -- |
@@ -21,7 +35,13 @@ import Data.Unit (Unit)
 -- | The first type parameter is a row of effects which represents the contexts
 -- | in which a computation can be run, and the second type parameter is the
 -- | return type.
-foreign import data Eff :: # ! -> * -> *
+foreign import data Eff :: # Effect -> Type -> Type
+
+instance semigroupEff :: Semigroup a => Semigroup (Eff e a) where
+  append = lift2 append
+
+instance monoidEff :: Monoid a => Monoid (Eff e a) where
+  mempty = pure mempty
 
 instance functorEff :: Functor (Eff e) where
   map = liftA1
@@ -72,6 +92,6 @@ foreign import forE :: forall e. Int -> Int -> (Int -> Eff e Unit) -> Eff e Unit
 
 -- | Loop over an array of values.
 -- |
--- | `foreach xs f` runs the computation returned by the function `f` for each
+-- | `foreachE xs f` runs the computation returned by the function `f` for each
 -- | of the inputs `xs`.
 foreign import foreachE :: forall e a. Array a -> (a -> Eff e Unit) -> Eff e Unit
